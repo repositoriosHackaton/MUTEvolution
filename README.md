@@ -7,9 +7,9 @@ Puden, si desean, agregar imágenes o resultados obtenidos.
 Recuerden que este readme es su puerta de entrada para su proyecto. 
 
 Un ejemplo puede ser: 
-# Nombre del Proyecto
+# SignBuddy ( amigo señas en español)
 
-Breve descripción del proyecto.
+Our project is a Sign-Text translator with AI using neuronal networks.
 
 ## Tabla de contenidos
 
@@ -23,44 +23,26 @@ Breve descripción del proyecto.
 
 
 * Nombre del proyecto
-
+SignBuddy ( amigo señas en español)
 * Breve descripción del proyecto -> Alguna imagen o gif que muestre el proyecto
-
+Our project is a Sign-Text translator with AI using neuronal networks.
+![alt text](image.png)
 * Arquitectura del proyecto + imagen
 
 * Proceso de desarrollo:
-
--Fuente del dataset
--Limpieza de datos (img que lo valide)
--Manejo excepciones/control errores
+-we created the dataset
+- for data preprocessing we used mediapipe to analyze the movements of the person in the video and collected the keypoints in numpy arrays.
+![alt text](image-1.png) ![alt text](image-2.png)
+-error control using "Excception" exceptions was used during the creation of some functions when they failed, but then we deleted the try/exceptions.
 -¿Qué modelo de Machine Learning están usando?
+we use deep learning instead machine learning. We use a sequential neural network with LTSM layers and EarlyStopping for callback. We also use tensorboard to see the history graph
+![alt text](image-3.png)
+
 -Estadísticos (Valores, gráficos, …)
+![alt text](image-4.png)
+![alt text](image-5.png)
 -Métrica(s) de evaluación del modelo
-
+![alt text](image-6.png)
+![alt text](image-7.png)
 * Funcionalidades extra:
-
-Ejem 1: Implementación de chatbot
-- Tecnología/Herramientas usadas (Librería, Framework, …)
-- Arquitectura (img)
-- Indicar fuente del dataset
-- Limpieza de datos (ejem: se usó PLN + img que lo validen)
-- Manejo excepciones/control errores
-- En caso de usar un modelo de ML indicar ¿Qué modelo de Machine Learning están usando?
-- Estadísticos (Valores, gráficos, …)
-- Métrica(s) de evaluación del modelo
-
-Ejem 2: Integración del proyecto en una pág web
-- Tecnología/Herramientas usadas …
-- Arquitectura (img)
-
-Ejem 3: Integración del proyecto en un canal WhatsApp, Discord, Telegram, Correo, …
-- Tecnología/Herramientas usadas …
-- Arquitectura (img)
-
-Ejem 4: Desarrollo de interfaz gráfica de usuario
-- Tecnología/Herramientas usadas …
-- Arquitectura (img)
-
-Ejem …: …
-- Tecnología/Herramientas usadas …
-
+we are implementing an avatar (the friend sign) in blender that copies the user's movement instead of viewing the user's camera with the landmarks on top of him
