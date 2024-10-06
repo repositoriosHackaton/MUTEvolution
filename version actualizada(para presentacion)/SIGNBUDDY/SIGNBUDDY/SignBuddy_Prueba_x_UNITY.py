@@ -1,3 +1,4 @@
+
 import cv2
 import numpy as np
 import mediapipe as mp
@@ -8,7 +9,7 @@ import time
 import os
 import socket  # Importar la librería socket
 
-#Parámetros de la comunicación
+# Parámetros de la comunicación
 serverAddressPort = ("127.0.0.1", 8080)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -19,13 +20,9 @@ actions = []
 sequence = []
 sentence = []
 predictions = []
-threshold = 0.5
+threshold = 0.35
 mp_holistic = mp.solutions.holistic  # Modelo Holístico
 mp_drawing = mp.solutions.drawing_utils  # Utilidades de dibujo
-mp_hands = mp.solutions.hands
-mp_pose = mp.solutions.pose
-hands = mp_hands.Hands()
-pose = mp_pose.Pose()
 model = keras.models.load_model('lector_model(97-88-90).h5')
 train_dir = 'new_dataset/train' 
 NP_PATH = 'new_dataset/NP_PATH'
@@ -34,43 +31,44 @@ NP_PATH = 'new_dataset/NP_PATH'
 for action in os.listdir(NP_PATH):
     actions.append(action)
 
-def draw_landmarks(image, results_hands, results_pose):
-    mp_drawing = mp.solutions.drawing_utils
-    mp_hands = mp.solutions.hands
-    mp_pose = mp.solutions.pose
-
+def draw_landmarks(image, results_holistic):
     # Configuración para líneas más delgadas
     landmark_drawing_spec = mp_drawing.DrawingSpec(thickness=1, circle_radius=1)
     connection_drawing_spec = mp_drawing.DrawingSpec(thickness=1)
 
-    if results_pose.pose_landmarks:
+    if results_holistic.pose_landmarks:
         mp_drawing.draw_landmarks(
-            image, results_pose.pose_landmarks, mp_pose.POSE_CONNECTIONS,
+            image, results_holistic.pose_landmarks, mp_holistic.POSE_CONNECTIONS,
             landmark_drawing_spec=landmark_drawing_spec,
             connection_drawing_spec=connection_drawing_spec)
     
-    if results_hands.multi_hand_landmarks:
-        for hand_landmarks in results_hands.multi_hand_landmarks:
-            mp_drawing.draw_landmarks(
-                image, hand_landmarks, mp_hands.HAND_CONNECTIONS,
-                landmark_drawing_spec=landmark_drawing_spec,
-                connection_drawing_spec=connection_drawing_spec)
+    if results_holistic.left_hand_landmarks:
+        mp_drawing.draw_landmarks(
+            image, results_holistic.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS,
+            landmark_drawing_spec=landmark_drawing_spec,
+            connection_drawing_spec=connection_drawing_spec)
+    
+    if results_holistic.right_hand_landmarks:
+        mp_drawing.draw_landmarks(
+            image, results_holistic.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS,
+            landmark_drawing_spec=landmark_drawing_spec,
+            connection_drawing_spec=connection_drawing_spec)
     
     return image
 
-def extract_keypoints(results_hands, results_pose):
-    pose = np.array([[res.x, res.y, res.z, res.visibility] for res in results_pose.pose_landmarks.landmark]).flatten() if results_pose.pose_landmarks else np.zeros(33*4)
+def extract_keypoints(results_holistic):
+    # Extracción de keypoints de la pose
+    pose = np.array([[res.x, res.y, res.z, res.visibility] for res in results_holistic.pose_landmarks.landmark]).flatten() if results_holistic.pose_landmarks else np.zeros(33*4)
     
+    # Extracción de keypoints de la mano izquierda
     lh = np.zeros(21*3)
-    rh = np.zeros(21*3)
+    if results_holistic.left_hand_landmarks:
+        lh = np.array([[res.x, res.y, res.z] for res in results_holistic.left_hand_landmarks.landmark]).flatten()
     
-    if results_hands.multi_hand_landmarks:
-        for idx, hand_landmarks in enumerate(results_hands.multi_hand_landmarks):
-            hand = np.array([[res.x, res.y, res.z] for res in hand_landmarks.landmark]).flatten()
-            if idx == 0:
-                lh = hand
-            elif idx == 1:
-                rh = hand
+    # Extracción de keypoints de la mano derecha
+    rh = np.zeros(21*3)
+    if results_holistic.right_hand_landmarks:
+        rh = np.array([[res.x, res.y, res.z] for res in results_holistic.right_hand_landmarks.landmark]).flatten()
     
     return np.concatenate([pose, lh, rh])
 
@@ -84,75 +82,116 @@ def prob_viz(res, actions, image, color):
 # Definir un solo color para todas las acciones (por ejemplo, azul)
 action_color = (255, 0, 0)  # Formato BGR (Azul)
 
-# Captura de video
-cap = cv2.VideoCapture(0)
+width, height = 1280, 720
 
-while cap.isOpened():
-    success, image = cap.read()
-    if not success:
-        break
-    
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    results_hands = hands.process(image_rgb)
-    results_pose = pose.process(image_rgb)
-    
-    # Dibujar los landmarks en la imagen
-    image_with_landmarks = draw_landmarks(image, results_hands, results_pose)
-    
-    # Verificar si se detecta una mano
-    if results_hands.multi_hand_landmarks:
-        # Extraer keypoints
-        keypoints = extract_keypoints(results_hands, results_pose)
+# Inicializar MediaPipe Holistic
+with mp_holistic.Holistic(
+    static_image_mode=False,
+    model_complexity=2,                 # 0 para más rápido, 2 para más preciso
+    smooth_landmarks=True,
+    min_detection_confidence=0.8,       # Aumentar el umbral para reducir falsos positivos
+    min_tracking_confidence=0.7) as holistic:
+
+    # Captura de video
+    cap = cv2.VideoCapture(1)
+    cap.set(3, width)
+    cap.set(4, height)
+
+    while cap.isOpened():
+        success, image = cap.read()
+        if not success:
+            break
         
-        # Añadir keypoints a la secuencia y mantener solo los últimos 33
-        sequence.append(keypoints)
-        sequence = sequence[-33:]
-        current_time = time.time()
+        # Convertir la imagen a RGB
+        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image_rgb.flags.writeable = False
         
-        if len(sequence) == 33 and current_time - last_prediction_time >= prediction_interval:
-            # Realizar predicción
-            input_data = np.expand_dims(sequence, axis=0)
-            res = model.predict(input_data)[0]
-            predicted_action = actions[np.argmax(res)]
-            print(predicted_action)
-            predictions.append(np.argmax(res))
-            sequence.clear()  # Limpiar la secuencia cuando no se detecta mano
+        # Procesar la imagen con MediaPipe Holistic
+        results_holistic = holistic.process(image_rgb)
+        image_rgb.flags.writeable = True
+        
+        # Dibujar los landmarks en la imagen
+        image_with_landmarks = draw_landmarks(image, results_holistic)
+        
+        # Verificar si se detecta la pose o manos
+        if results_holistic.left_hand_landmarks or results_holistic.right_hand_landmarks:
+            keypoints = extract_keypoints(results_holistic)
             
-            # Lógica de visualización
-            if np.unique(predictions[-10:])[0] == np.argmax(res):
-                if res[np.argmax(res)] > threshold:
-                    if len(sentence) > 0:
-                        if predicted_action != sentence[-1]:
-                            sentence.append(predicted_action)
-                    else:
-                        sentence.append(predicted_action)
-
-            # Enviar las posiciones de las manos como una cadena formateada
-            keypoints_str = ','.join([f"{coord:.3f}" for coord in keypoints])  # Formato: "x1,y1,z1,x2,y2,z2,...,x21,y21,z21"
-            sock.sendto(str.encode(f"({keypoints_str})"), serverAddressPort)
+            # Añadir keypoints a la secuencia y mantener solo los últimos 33
+            sequence.append(keypoints)
+            sequence = sequence[-33:]
+            current_time = time.time()
             
-            # Visualizar probabilidades
-            image_with_landmarks = prob_viz(res, actions, image_with_landmarks, action_color)
-            last_prediction_time = current_time
+            if len(sequence) == 33 and current_time - last_prediction_time >= prediction_interval:
+                # Convertir la secuencia a un array numpy
+                input_data = np.expand_dims(np.array(sequence), axis=0)  # Forma: (1, 33, 258)
+                
+                # Realizar predicción
+                res = model.predict(input_data)[0]
+                predicted_action = actions[np.argmax(res)]
+                print(predicted_action)
+                predictions.append(np.argmax(res))
+                sequence.clear()  # Limpiar la secuencia cuando se hace una predicción
+                
+                # Lógica de visualización
+                if len(predictions) >= 10:
+                    most_common = np.argmax(np.bincount(predictions[-10:]))
+                    if res[most_common] > threshold:
+                        if len(sentence) > 0:
+                            if most_common != actions.index(sentence[-1]):
+                                sentence.append(actions[most_common])
+                        else:
+                            sentence.append(actions[most_common])
+                
+                # Enviar las posiciones de las manos como una cadena formateada
+                keypoints_str = ','.join([f"{coord:.3f}" for coord in keypoints])  # Formato: "x1,y1,z1,x2,y2,z2,...,x258"
+                sock.sendto(str.encode(f"({keypoints_str})"), serverAddressPort)
+                
+                # Visualizar probabilidades
+                image_with_landmarks = prob_viz(res, actions, image_with_landmarks, action_color)
+                last_prediction_time = current_time
+            
+            # Mostrar la predicción en la imagen
+            cv2.rectangle(image_with_landmarks, (0, 0), (640, 40), (245, 117, 16), -1)
+            cv2.putText(image_with_landmarks, ' '.join(sentence), (3, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            
+            # Dibujar el bounding box para manos izquierdas
+            if results_holistic.left_hand_landmarks:
+                h, w, _ = image.shape
+                landmarks = results_holistic.left_hand_landmarks.landmark
+                xmin = min([lm.x for lm in landmarks]) * w
+                xmax = max([lm.x for lm in landmarks]) * w
+                ymin = min([lm.y for lm in landmarks]) * h
+                ymax = max([lm.y for lm in landmarks]) * h
+                area = (xmax - xmin) * (ymax - ymin)
+                if area > 1000:
+                    cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0, 255, 0), 2)
+            
+            # Dibujar el bounding box para manos derechas
+            if results_holistic.right_hand_landmarks:
+                h, w, _ = image.shape
+                landmarks = results_holistic.right_hand_landmarks.landmark
+                xmin = min([lm.x for lm in landmarks]) * w
+                xmax = max([lm.x for lm in landmarks]) * w
+                ymin = min([lm.y for lm in landmarks]) * h
+                ymax = max([lm.y for lm in landmarks]) * h
+                area = (xmax - xmin) * (ymax - ymin)
+                if area > 1000:
+                    cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0, 255, 0), 2)
         
-        # Mostrar la predicción en la imagen
-        cv2.rectangle(image_with_landmarks, (0, 0), (640, 40), (245, 117, 16), -1)
-        cv2.putText(image_with_landmarks, ' '.join(sentence), (3, 30), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-    else:
-        # No se detecta mano
-        sequence.clear()  # Limpiar la secuencia cuando no se detecta mano
-        cv2.putText(image_with_landmarks, 'No hand detected', (10, 30), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
-    
-    
-    
-    # Mostrar la imagen procesada
-    cv2.imshow('Real-time Prediction', image_with_landmarks)
-    
-    # Salir si se presiona 'q'
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        else:
+            # No se detecta pose ni manos
+            sequence.clear()  # Limpiar la secuencia cuando no se detecta nada
+            cv2.putText(image_with_landmarks, 'No hand or pose detected', (10, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+        
+        # Mostrar la imagen procesada
+        cv2.imshow('Real-time Prediction', image_with_landmarks)
+        
+        # Salir si se presiona 'q'
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
-cap.release()
-cv2.destroyAllWindows()
+    cap.release()
+    cv2.destroyAllWindows()
