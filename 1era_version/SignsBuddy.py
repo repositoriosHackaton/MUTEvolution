@@ -22,7 +22,7 @@ mp_hands = mp.solutions.hands
 mp_pose = mp.solutions.pose
 hands = mp_hands.Hands()
 pose = mp_pose.Pose()
-model = keras.models.load_model('lector_model(97-88-90).h5')
+model = keras.models.load_model('lector_model(99acc-97val_acc).keras')
 train_dir = 'new_dataset/train' 
 NP_PATH = 'new_dataset/NP_PATH'
 for action in os.listdir(NP_PATH):
