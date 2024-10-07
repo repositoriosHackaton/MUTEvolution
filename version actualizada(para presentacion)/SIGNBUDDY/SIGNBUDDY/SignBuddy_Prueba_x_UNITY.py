@@ -13,17 +13,16 @@ import socket  # Importar la librería socket
 serverAddressPort = ("127.0.0.1", 8080)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-last_prediction_time = 0
-prediction_interval = 1
+
 
 actions = []
 sequence = []
 sentence = []
 predictions = []
-threshold = 0.35
+threshold = 0.20
 mp_holistic = mp.solutions.holistic  # Modelo Holístico
 mp_drawing = mp.solutions.drawing_utils  # Utilidades de dibujo
-model = keras.models.load_model('lector_model(97-88-90).h5')
+model = keras.models.load_model('lector_model(99acc-97val_acc).keras')
 train_dir = 'new_dataset/train' 
 NP_PATH = 'new_dataset/NP_PATH'
 
@@ -82,18 +81,18 @@ def prob_viz(res, actions, image, color):
 # Definir un solo color para todas las acciones (por ejemplo, azul)
 action_color = (255, 0, 0)  # Formato BGR (Azul)
 
-width, height = 1280, 720
+width, height = 720, 640
 
 # Inicializar MediaPipe Holistic
 with mp_holistic.Holistic(
     static_image_mode=False,
     model_complexity=2,                 # 0 para más rápido, 2 para más preciso
     smooth_landmarks=True,
-    min_detection_confidence=0.8,       # Aumentar el umbral para reducir falsos positivos
-    min_tracking_confidence=0.7) as holistic:
+    min_detection_confidence=0.5,       # Aumentar el umbral para reducir falsos positivos
+    min_tracking_confidence=0.5) as holistic:
 
     # Captura de video
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     cap.set(3, width)
     cap.set(4, height)
 
@@ -119,10 +118,10 @@ with mp_holistic.Holistic(
             
             # Añadir keypoints a la secuencia y mantener solo los últimos 33
             sequence.append(keypoints)
-            sequence = sequence[-33:]
+            sequence = sequence[-34:]
             current_time = time.time()
             
-            if len(sequence) == 33 and current_time - last_prediction_time >= prediction_interval:
+            if len(sequence) == 34:
                 # Convertir la secuencia a un array numpy
                 input_data = np.expand_dims(np.array(sequence), axis=0)  # Forma: (1, 33, 258)
                 
@@ -156,29 +155,29 @@ with mp_holistic.Holistic(
             cv2.putText(image_with_landmarks, ' '.join(sentence), (3, 30), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
             
-            # Dibujar el bounding box para manos izquierdas
-            if results_holistic.left_hand_landmarks:
-                h, w, _ = image.shape
-                landmarks = results_holistic.left_hand_landmarks.landmark
-                xmin = min([lm.x for lm in landmarks]) * w
-                xmax = max([lm.x for lm in landmarks]) * w
-                ymin = min([lm.y for lm in landmarks]) * h
-                ymax = max([lm.y for lm in landmarks]) * h
-                area = (xmax - xmin) * (ymax - ymin)
-                if area > 1000:
-                    cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0, 255, 0), 2)
+            # # Dibujar el bounding box para manos izquierdas
+            # if results_holistic.left_hand_landmarks:
+            #     h, w, _ = image.shape
+            #     landmarks = results_holistic.left_hand_landmarks.landmark
+            #     xmin = min([lm.x for lm in landmarks]) * w
+            #     xmax = max([lm.x for lm in landmarks]) * w
+            #     ymin = min([lm.y for lm in landmarks]) * h
+            #     ymax = max([lm.y for lm in landmarks]) * h
+            #     area = (xmax - xmin) * (ymax - ymin)
+            #     if area > 1000:
+            #         cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0, 255, 0), 2)
             
             # Dibujar el bounding box para manos derechas
-            if results_holistic.right_hand_landmarks:
-                h, w, _ = image.shape
-                landmarks = results_holistic.right_hand_landmarks.landmark
-                xmin = min([lm.x for lm in landmarks]) * w
-                xmax = max([lm.x for lm in landmarks]) * w
-                ymin = min([lm.y for lm in landmarks]) * h
-                ymax = max([lm.y for lm in landmarks]) * h
-                area = (xmax - xmin) * (ymax - ymin)
-                if area > 1000:
-                    cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0, 255, 0), 2)
+            # if results_holistic.right_hand_landmarks:
+            #     h, w, _ = image.shape
+            #     landmarks = results_holistic.right_hand_landmarks.landmark
+            #     xmin = min([lm.x for lm in landmarks]) * w
+            #     xmax = max([lm.x for lm in landmarks]) * w
+            #     ymin = min([lm.y for lm in landmarks]) * h
+            #     ymax = max([lm.y for lm in landmarks]) * h
+            #     area = (xmax - xmin) * (ymax - ymin)
+            #     if area > 1000:
+            #         cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0, 255, 0), 2)
         
         else:
             # No se detecta pose ni manos
