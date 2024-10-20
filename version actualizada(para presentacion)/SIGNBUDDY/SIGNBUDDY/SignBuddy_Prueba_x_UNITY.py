@@ -19,10 +19,10 @@ actions = []
 sequence = []
 sentence = []
 predictions = []
-threshold = 0.20
+threshold = 0.50
 mp_holistic = mp.solutions.holistic  # Modelo Holístico
 mp_drawing = mp.solutions.drawing_utils  # Utilidades de dibujo
-model = keras.models.load_model('lector_model(99acc-97val_acc).keras')
+model = keras.models.load_model('lector_model(95acc-95val_acc-95test).keras')
 train_dir = 'new_dataset/train' 
 NP_PATH = 'new_dataset/NP_PATH'
 
@@ -132,15 +132,15 @@ with mp_holistic.Holistic(
                 predictions.append(np.argmax(res))
                 sequence.clear()  # Limpiar la secuencia cuando se hace una predicción
                 
-                # Lógica de visualización
-                if len(predictions) >= 10:
-                    most_common = np.argmax(np.bincount(predictions[-10:]))
-                    if res[most_common] > threshold:
-                        if len(sentence) > 0:
-                            if most_common != actions.index(sentence[-1]):
-                                sentence.append(actions[most_common])
-                        else:
-                            sentence.append(actions[most_common])
+                # # Lógica de visualización
+                # if len(predictions) >= 10:
+                #     most_common = np.argmax(np.bincount(predictions[-10:]))
+                #     if res[most_common] > threshold:
+                #         if len(sentence) > 0:
+                #             if most_common != actions.index(sentence[-1]):
+                #                 sentence.append(actions[most_common])
+                #         else:
+                #             sentence.append(actions[most_common])
                 
                 # Enviar las posiciones de las manos como una cadena formateada
                 keypoints_str = ','.join([f"{coord:.3f}" for coord in keypoints])  # Formato: "x1,y1,z1,x2,y2,z2,...,x258"
@@ -150,34 +150,34 @@ with mp_holistic.Holistic(
                 image_with_landmarks = prob_viz(res, actions, image_with_landmarks, action_color)
                 last_prediction_time = current_time
             
-            # Mostrar la predicción en la imagen
-            cv2.rectangle(image_with_landmarks, (0, 0), (640, 40), (245, 117, 16), -1)
-            cv2.putText(image_with_landmarks, ' '.join(sentence), (3, 30), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            # # Mostrar la predicción en la imagen
+            # cv2.rectangle(image_with_landmarks, (0, 0), (640, 40), (245, 117, 16), -1)
+            # cv2.putText(image_with_landmarks, ' '.join(sentence), (3, 30), 
+            #             cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
             
-            # # Dibujar el bounding box para manos izquierdas
-            # if results_holistic.left_hand_landmarks:
-            #     h, w, _ = image.shape
-            #     landmarks = results_holistic.left_hand_landmarks.landmark
-            #     xmin = min([lm.x for lm in landmarks]) * w
-            #     xmax = max([lm.x for lm in landmarks]) * w
-            #     ymin = min([lm.y for lm in landmarks]) * h
-            #     ymax = max([lm.y for lm in landmarks]) * h
-            #     area = (xmax - xmin) * (ymax - ymin)
-            #     if area > 1000:
-            #         cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0, 255, 0), 2)
+            # Dibujar el bounding box para manos izquierdas
+            if results_holistic.left_hand_landmarks:
+                h, w, _ = image.shape
+                landmarks = results_holistic.left_hand_landmarks.landmark
+                xmin = min([lm.x for lm in landmarks]) * w
+                xmax = max([lm.x for lm in landmarks]) * w
+                ymin = min([lm.y for lm in landmarks]) * h
+                ymax = max([lm.y for lm in landmarks]) * h
+                area = (xmax - xmin) * (ymax - ymin)
+                if area > 1000:
+                    cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0, 255, 0), 2)
             
             # Dibujar el bounding box para manos derechas
-            # if results_holistic.right_hand_landmarks:
-            #     h, w, _ = image.shape
-            #     landmarks = results_holistic.right_hand_landmarks.landmark
-            #     xmin = min([lm.x for lm in landmarks]) * w
-            #     xmax = max([lm.x for lm in landmarks]) * w
-            #     ymin = min([lm.y for lm in landmarks]) * h
-            #     ymax = max([lm.y for lm in landmarks]) * h
-            #     area = (xmax - xmin) * (ymax - ymin)
-            #     if area > 1000:
-            #         cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0, 255, 0), 2)
+            if results_holistic.right_hand_landmarks:
+                h, w, _ = image.shape
+                landmarks = results_holistic.right_hand_landmarks.landmark
+                xmin = min([lm.x for lm in landmarks]) * w
+                xmax = max([lm.x for lm in landmarks]) * w
+                ymin = min([lm.y for lm in landmarks]) * h
+                ymax = max([lm.y for lm in landmarks]) * h
+                area = (xmax - xmin) * (ymax - ymin)
+                if area > 1000:
+                    cv2.rectangle(image, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0, 255, 0), 2)
         
         else:
             # No se detecta pose ni manos
